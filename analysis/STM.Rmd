@@ -1,0 +1,257 @@
+---
+title: "NLP Project - STM"
+output: html_notebook
+---
+
+```{r}
+library(sf)
+library(tidyverse)
+library(stm)
+library(topicmodels)
+library(lda) 
+library(quanteda)
+library(quanteda.textplots)
+library(slam)
+library(quanteda)
+library(dplyr)
+library(ggplot2)
+
+DIR <- '.'
+```
+
+# Load data
+
+
+```{r}
+# Load data
+lyrics_data <- read.csv(file.path(DIR, '../../data/top songs processed.csv'))
+
+lyrics_data<- lyrics_data %>%
+  group_by(release.year) %>% # Group data by release year
+  arrange(desc(views)) %>% # Arrange data in descending order of views within each group
+  slice_head(n = 1000) %>% # Select the top 1000 rows for each group
+  ungroup() # Ungroup the data to return to a regular dataframe
+```
+
+```{r}
+# Remove all 2 letter words 
+lyrics_data$lyrics <- gsub("\\b\\w{2}\\b", "", lyrics_data$lyrics)
+
+# Add ID column 
+lyrics_data <- lyrics_data %>%
+  mutate(row_num = row_number())
+
+# Build corpus
+lyricsCorpus <- corpus(lyrics_data, docid_field = 'row_num', text_field = 'lyrics')
+
+# Tokenize corpus
+lyricsCorpus_tokenized <- tokens(lyricsCorpus)
+
+#Convert our tokenized corpus into a document×term frequency
+dfm_lyricsCorpus<- dfm(lyricsCorpus_tokenized)
+```
+
+
+# Plot genre per year
+
+```{r}
+# Step 1: Calculate total tags per year
+yearly_totals <- lyrics_data %>%
+  group_by(release.year) %>%
+  summarise(total_tags = n(), .groups = 'drop')
+
+# Step 2: Calculate tag counts per year
+tag_counts_per_year <- lyrics_data %>%
+  group_by(release.year, tag) %>%
+  summarise(tag_count = n(), .groups = 'drop')
+
+# Step 3: Join the totals with the counts and calculate percentages
+tag_percentages <- tag_counts_per_year %>%
+  left_join(yearly_totals, by = "release.year") %>%
+  mutate(percentage = (tag_count / total_tags) * 100)
+
+# Step 4: Plot the data
+ggplot(tag_percentages, aes(x = release.year, y = percentage, group = tag, color = tag)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Release Year", y = "Percentage (%)") +
+  scale_color_discrete(name = "Genre")
+
+```
+
+# Filter corpus
+
+## Attempt 1
+
+```{r}
+# Create custom stop words list
+custom_list_stopwords <- c(stopwords("en"))
+
+# Filter corpus
+dfm_lyricsCorpus_filtered <- tokens(lyricsCorpus, remove_punct = TRUE, 
+                                          remove_symbols = TRUE, remove_numbers = TRUE) %>% 
+                            tokens_remove(custom_list_stopwords) %>%
+                            tokens_wordstem() %>% 
+                            tokens_ngrams(n = c(1, 2)) %>% 
+                            dfm() %>% 
+                            dfm_tolower() %>% 
+                            dfm_trim(min_termfreq = 5, min_docfreq = 0.0025, max_docfreq = 0.99, docfreq_type = "prop")
+```
+
+
+```{r, warning=FALSE}
+textplot_wordcloud(dfm_lyricsCorpus_filtered, random_order = FALSE, rotation = 0.25, 
+    color = RColorBrewer::brewer.pal(8, "Dark2"))
+```
+
+```{r}
+# Calculate the document frequency for each term
+# This computes how many documents each term appears in
+doc_freqs <- docfreq(dfm_lyricsCorpus_filtered)
+
+# Convert to a data frame, sort it, and create a column for term ID or rank
+df_doc_freqs <- data.frame(term = names(doc_freqs), doc_freq = doc_freqs) %>%
+  arrange(desc(doc_freq)) %>%
+  mutate(term_id = row_number())
+
+# Create the plot for document frequencies
+ggplot(df_doc_freqs, aes(x = term_id, y = doc_freq)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Document Frequency Distribution", x = "Term ID", y = "Document Frequency") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) # Hide x-axis text for clarity
+
+```
+## Attempt 2
+```{r}
+# Filter corpus
+dfm_lyricsCorpus_filtered <- tokens(lyricsCorpus, remove_punct = TRUE, 
+                                          remove_symbols = TRUE, remove_numbers = TRUE) %>% 
+                            tokens_remove(custom_list_stopwords) %>%
+                            tokens_wordstem() %>% 
+                            tokens_ngrams(n = c(1, 2)) %>% 
+                            dfm() %>% 
+                            dfm_tolower() %>% 
+                            dfm_trim(min_termfreq = 5, min_docfreq = 480, max_docfreq = 30000)
+```
+
+
+```{r, warning=FALSE}
+textplot_wordcloud(dfm_lyricsCorpus_filtered, random_order = FALSE, rotation = 0.25, 
+    color = RColorBrewer::brewer.pal(8, "Dark2"))
+```
+
+
+```{r}
+# Calculate the document frequency for each term
+# This computes how many documents each term appears in
+doc_freqs <- docfreq(dfm_lyricsCorpus_filtered)
+
+# Convert to a data frame, sort it, and create a column for term ID or rank
+df_doc_freqs <- data.frame(term = names(doc_freqs), doc_freq = doc_freqs) %>%
+  arrange(desc(doc_freq)) %>%
+  mutate(term_id = row_number())
+
+# Create the plot for document frequencies
+ggplot(df_doc_freqs, aes(x = term_id, y = doc_freq)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Document Frequency Distribution", x = "Term ID", y = "Document Frequency") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) # Hide x-axis text for clarity
+```
+
+# Run STM
+
+```{r}
+# Assuming dfm_lyricsCorpus_filtered is your document-term matrix
+non_empty_docs <- which(rowSums(dfm_lyricsCorpus_filtered) > 0)
+
+# Filter your DFM to keep only non-empty documents
+dfm_lyricsCorpus_filtered <- dfm_lyricsCorpus_filtered[non_empty_docs, ]
+
+# Prepare the metadata for STM
+meta_data <- data.frame(date = lyrics_data$release.year, genre = lyrics_data$tag)
+meta_data <- meta_data[non_empty_docs, ]
+```
+
+```{r}
+# Run the STM model
+stm_model <- stm(documents = dfm_lyricsCorpus_filtered, 
+                 data = meta_data, 
+                 K = 20, 
+                 prevalence = ~ s(date) + genre + s(date)*genre, 
+                 seed = 123, init.type = "Spectral")
+```
+
+
+```{r}
+plot(stm_model, type="summary")
+```
+
+
+```{r}
+labelTopics(stm_model, n = 7)
+```
+
+
+```{r}
+poliblog5k.eff.day.rat_day <- estimateEffect(1:20 ~ s(date), stm_model, meta = meta_data, uncertainty = "Global")
+```
+
+
+```{r}
+plot(poliblog5k.eff.day.rat_day, "date", method = "continuous", topics = 20,model = poliblog5k.fit.rat_day, printlegend = FALSE, xaxt = "n")
+```
+## Optimise for K
+
+```{r}
+r
+```
+```{r}
+plot(searchK$)
+```
+
+```{r}
+ggplot(searchK$results, aes(x = K, y = heldout)) +
+  geom_line() +
+  geom_point() +
+  theme_minimal() +
+  labs(title = "Held-Out Likelihood by Number of Topics",
+       x = "Number of Topics (K)",
+       y = "Held-Out Likelihood")
+```
+```{r}
+library(ggplot2)
+
+
+# Extracting the data from the searchK list
+K_values <- searchK$results$K  
+heldout_likelihood <- searchK$results$heldout
+semcoh <- searchK$results$semcoh
+
+# Creating a data frame for plotting
+plot_data <- data.frame(
+  K = unlist(K_values),
+  HeldOutLikelihood = unlist(heldout_likelihood),
+  semcoh = unlist(semcoh)
+)
+
+# Plot for Held-Out Likelihood
+ggplot(plot_data, aes(x = K, y = HeldOutLikelihood)) +
+  geom_line() +
+  geom_point() +
+  theme_minimal() +
+  labs(x = "Number of Topics (K)",
+       y = "Held-Out Likelihood")
+
+# Plot for Semantic coherance
+ggplot(plot_data, aes(x = K, y = semcoh)) +
+  geom_line() +
+  geom_point() +
+  theme_minimal() +
+  labs(x = "Number of Topics (K)",
+       y = "Semantic Coherance")
+
+
+```
+
