@@ -20,17 +20,9 @@ DIR <- '.'
 ```
 
 # Load data
-
-
 ```{r}
 # Load data
 lyrics_data <- read.csv(file.path(DIR, '../../data/top songs processed.csv'))
-
-lyrics_data<- lyrics_data %>%
-  group_by(release.year) %>% # Group data by release year
-  arrange(desc(views)) %>% # Arrange data in descending order of views within each group
-  slice_head(n = 1000) %>% # Select the top 1000 rows for each group
-  ungroup() # Ungroup the data to return to a regular dataframe
 ```
 
 ```{r}
@@ -178,7 +170,7 @@ meta_data <- meta_data[non_empty_docs, ]
 # Run the STM model
 stm_model <- stm(documents = dfm_lyricsCorpus_filtered, 
                  data = meta_data, 
-                 K = 20, 
+                 K = 25, 
                  prevalence = ~ s(date) + genre + s(date)*genre, 
                  seed = 123, init.type = "Spectral")
 ```
@@ -195,35 +187,34 @@ labelTopics(stm_model, n = 7)
 
 
 ```{r}
-poliblog5k.eff.day.rat_day <- estimateEffect(1:20 ~ s(date), stm_model, meta = meta_data, uncertainty = "Global")
+time_effect <- estimateEffect(1:20 ~ s(date), stm_model, meta = meta_data, uncertainty = "Global")
 ```
 
 
 ```{r}
-plot(poliblog5k.eff.day.rat_day, "date", method = "continuous", topics = 20,model = poliblog5k.fit.rat_day, printlegend = FALSE, xaxt = "n")
+plot(time_effect, "date", method = "continuous", topics = 20,model = poliblog5k.fit.rat_day, printlegend = FALSE, xaxt = "n")
 ```
 ## Optimise for K
 
 ```{r}
-r
-```
-```{r}
-plot(searchK$)
+# Optimise for K
+system.time(
+  searchK <- searchK(documents = dfm_lyricsCorpus_filtered, 
+                     K = c(10,15, 20, 25, 30,40), #specify K to try
+                      N = 4800, # Use 10% of observations to determine optimum number of topics
+                     proportion = 0.5, # hold out 50% to use for testing
+                     heldout.seed = 1234, 
+                     M = 10, # number of random initializations to perform
+                     cores = 1, # default
+                     prevalence =~ s(date) + genre + s(date)*genre,
+                     max.em.its = 75, # Max iterations
+                     data = meta_data,
+                     init.type = "Spectral",
+                     verbose=TRUE)
+)
 ```
 
 ```{r}
-ggplot(searchK$results, aes(x = K, y = heldout)) +
-  geom_line() +
-  geom_point() +
-  theme_minimal() +
-  labs(title = "Held-Out Likelihood by Number of Topics",
-       x = "Number of Topics (K)",
-       y = "Held-Out Likelihood")
-```
-```{r}
-library(ggplot2)
-
-
 # Extracting the data from the searchK list
 K_values <- searchK$results$K  
 heldout_likelihood <- searchK$results$heldout
@@ -251,7 +242,5 @@ ggplot(plot_data, aes(x = K, y = semcoh)) +
   theme_minimal() +
   labs(x = "Number of Topics (K)",
        y = "Semantic Coherance")
-
-
 ```
 
