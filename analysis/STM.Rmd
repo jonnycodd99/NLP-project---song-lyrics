@@ -16,6 +16,7 @@ library(quanteda)
 library(dplyr)
 library(ggplot2)
 
+
 DIR <- '.'
 ```
 
@@ -170,21 +171,65 @@ meta_data <- meta_data[non_empty_docs, ]
 # Run the STM model
 stm_model <- stm(documents = dfm_lyricsCorpus_filtered, 
                  data = meta_data, 
-                 K = 25, 
+                 K = 20, 
                  prevalence = ~ s(date) + genre + s(date)*genre, 
                  seed = 123, init.type = "Spectral")
 ```
 
 
 ```{r}
-plot(stm_model, type="summary")
+topic_labels <- c("Vocal Expressions: ", "Love and Affection: ", "Feelings and Friendship: ", "Conversational and Familial References: ", "Journey and Celebration: ", "Darker Imagery: ", "Aspiration and Motivation: ", "Party and Energy: ", "Masculinity and Identity: ", "Change and Departure: ", "Desire and Yearning: ", "Rebellion and Explicit Content: ", "Reflection and Time: ", "Spirituality and Destiny: ", "Sociopolitical Commentary: ", "Romantic and Playful Affections: ", "Challenges and Aspirations: ", "Celebration and Optimism: ", "Exclamations and Emphasis: ", "Knowledge and Discovery: ")
+
+plot(stm_model, type="summary", topic.names = topic_labels, text.cex = 0.7)
 ```
+
 
 
 ```{r}
 labelTopics(stm_model, n = 7)
 ```
 
+1. **Vocal Expressions**: This topic seems to capture songs that heavily feature vocal adlibs like "ooh," "woo," and "mmm," often associated with feelings of awe or the magical moments in music.
+
+2. **Love and Affection**: Centered around the theme of love, this topic includes words that express deep affection, romantic desires, and the joy and pain of love.
+
+3. **Feelings and Friendship**: This topic revolves around the expression of feelings, both good and bad, and the importance of friendship, highlighting songs that discuss emotional experiences and the value of close relationships.
+
+4. **Conversational and Familial References**: Featuring words like "say," "hey," "mama," and "daddy," this topic likely includes songs with conversational tones or those addressing family members directly, evoking a sense of dialogue or personal stories.
+
+5. **Journey and Celebration**: This topic suggests themes of coming home, dancing, singing, and the general celebration of life's journey, encapsulating songs that are about movement, joy, and homecoming.
+
+6. **Darker Imagery**: With words like "eye," "light," "burn," and "die," this topic delves into darker or more introspective themes, possibly touching on loss, despair, or the more somber aspects of life.
+
+7. **Aspiration and Motivation**: This theme focuses on encouragement, striving for greatness, and never giving up, with words like "let," "high," and "move" indicating a push towards overcoming obstacles and achieving goals.
+
+8. **Party and Energy**: Highlighting the vibrant aspects of music, this topic is all about the party scene, with references to "rock," "beat," and "parti," pointing towards energetic, upbeat songs designed to get listeners moving.
+
+9. **Masculinity and Identity**: With words like "like," "man," "boy," and "car," this topic explores themes of masculinity, identity, and perhaps the societal expectations of men, often in a playful or contemplative manner.
+
+10. **Change and Departure**: Focused on themes of change, leaving, and moving on, this topic includes words related to transitions, such as "take," "away," "back," and "walk," reflecting on the process of change and the emotions involved.
+
+11. **Desire and Yearning**: This topic addresses the deep human desires for connection, freedom, and being understood, with "want," "need," and "nobodi" highlighting the longing and search for fulfillment.
+
+12. **Explicit Content and Rebellion**: Featuring explicit language and themes, this topic is likely associated with songs that challenge societal norms, express frustration, or embrace a rebellious spirit.
+
+13. **Reflection and Time**: Centering around "time," "life," and "day," this topic reflects on the passage of time, life's journey, and the moments that shape our existence, often in a contemplative or nostalgic tone.
+
+14. **Spirituality and Destiny**: With references to "god," "jesus," and "one," this topic explores spiritual themes, faith, and the quest for meaning and purpose in life.
+
+15. **Sociopolitical Commentary**: Addressing "people," "world," "black," and "war," this topic is rich with songs that comment on social issues, political struggles, and the human condition, often aiming to inspire change or awareness.
+
+16. **Romantic and Playful Affections**: This topic is filled with affectionate terms like "babi," "girl," and "wanna," likely featuring songs that express love, desire, and playful romantic intentions.
+
+17. **Street Life, Ambition, and Explitives**: With words like  "money," and "shit," this topic delves into the realities of street life, ambition, and the pursuit of success, often with a raw, unfiltered lens.
+
+18. **Celebration and Optimism**: Focused on "right," "night," and "tonight," this topic captures the essence of living in the moment, celebrating life, and embracing the possibilities of the night.
+
+19. **Exclamations and Emphasis**: Utilizing words like "yeah," "huh," and "whoa," this topic emphasizes songs that use these exclamations to convey enthusiasm, surprise, or agreement, often in a catchy or memorable way.
+
+20. **Knowledge and Discovery**: This topic, with words like "know," "tell," and "think," explores themes of understanding, revelation, and the pursuit of truth, reflecting on the process of learning and sharing knowledge.
+
+# Topics over time
 
 ```{r}
 time_effect <- estimateEffect(1:20 ~ s(date), stm_model, meta = meta_data, uncertainty = "Global")
@@ -192,7 +237,7 @@ time_effect <- estimateEffect(1:20 ~ s(date), stm_model, meta = meta_data, uncer
 
 
 ```{r}
-plot(time_effect, "date", method = "continuous", topics = 20,model = poliblog5k.fit.rat_day, printlegend = FALSE, xaxt = "n")
+plot(time_effect, "date", method = "continuous", topics = c(1, 2, 3, 4, 5, 7, 8, 9, 10) ,model = time_effect, printlegend = TRUE)
 ```
 ## Optimise for K
 
