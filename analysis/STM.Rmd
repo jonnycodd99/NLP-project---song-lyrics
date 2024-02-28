@@ -2,6 +2,12 @@
 title: "NLP Project - STM"
 output: html_notebook
 ---
+```{r}
+if (!require(devtools)) install.packages("devtools")
+library(devtools)
+devtools::install_github("mikajoh/tidystm", dependencies = TRUE)
+devtools::install_github("milesdwilliams15/Better-Graphics-for-the-stm-Package-in-R", dependencies = TRUE)
+```
 
 ```{r}
 library(sf)
@@ -15,8 +21,16 @@ library(slam)
 library(quanteda)
 library(dplyr)
 library(ggplot2)
+library(tidystm)
+library(RColorBrewer)
+library(ggthemes)
+library(gridExtra)
 
 
+# Define the color palette
+my_palette <- brewer.pal(9, "Set1")  
+
+# Set directory
 DIR <- '.'
 ```
 
@@ -66,10 +80,11 @@ tag_percentages <- tag_counts_per_year %>%
 # Step 4: Plot the data
 ggplot(tag_percentages, aes(x = release.year, y = percentage, group = tag, color = tag)) +
   geom_line() +
-  theme_minimal() +
+  theme_calc() +
+  theme(panel.border = element_blank()) +
   labs(x = "Release Year", y = "Percentage (%)") +
-  scale_color_discrete(name = "Genre")
-
+  scale_color_discrete(name = "Genre", labels = c("Country", "Misc", "Pop", "Rap", "R & B", "Rock"))
+ggsave("../figures/Genres over time.png", width = 23, height = 15, units = "cm")
 ```
 
 # Filter corpus
@@ -88,7 +103,7 @@ dfm_lyricsCorpus_filtered <- tokens(lyricsCorpus, remove_punct = TRUE,
                             tokens_ngrams(n = c(1, 2)) %>% 
                             dfm() %>% 
                             dfm_tolower() %>% 
-                            dfm_trim(min_termfreq = 5, min_docfreq = 0.0025, max_docfreq = 0.99, docfreq_type = "prop")
+                            dfm_trim(min_termfreq = 5, min_docfreq = 0.01, max_docfreq = 0.99, docfreq_type = "prop")
 ```
 
 
@@ -178,67 +193,82 @@ stm_model <- stm(documents = dfm_lyricsCorpus_filtered,
 
 
 ```{r}
-topic_labels <- c("Vocal Expressions: ", "Love and Affection: ", "Feelings and Friendship: ", "Conversational and Familial References: ", "Journey and Celebration: ", "Darker Imagery: ", "Aspiration and Motivation: ", "Party and Energy: ", "Masculinity and Identity: ", "Change and Departure: ", "Desire and Yearning: ", "Rebellion and Explicit Content: ", "Reflection and Time: ", "Spirituality and Destiny: ", "Sociopolitical Commentary: ", "Romantic and Playful Affections: ", "Challenges and Aspirations: ", "Celebration and Optimism: ", "Exclamations and Emphasis: ", "Knowledge and Discovery: ")
+topic_labels <- c("Vocal Expressions: ", "Love: ", "Feelings and Friendship: ", "Conversational and Family: ", "Journey: ", "Dark Imagery: ", "Aspiration: ", "Party: ", "Male terms: ", "Change and Departure: ", "Desire: ", "Expletives: ", "Reflection: ", "Spirituality: ", "Sociopolitical: ", "Romance: ", "Street Life and Expletives: ", "Tonight: ", "Exclamations: ", "Knowledge: ")
 
-plot(stm_model, type="summary", topic.names = topic_labels, text.cex = 0.7)
+plot(stm_model, type="summary", topic.names = topic_labels, text.cex = 0.9, main = "")
+
+par(bty="n",lwd=2,xaxt="n") 
+plot.STM(stm_model,type="summary",topic.names=topic_labels)
 ```
-
-
 
 ```{r}
 labelTopics(stm_model, n = 7)
 ```
+1. **Vocal Expressions**: 
 
-1. **Vocal Expressions**: This topic seems to capture songs that heavily feature vocal adlibs like "ooh," "woo," and "mmm," often associated with feelings of awe or the magical moments in music.
+2. **Love**: 
 
-2. **Love and Affection**: Centered around the theme of love, this topic includes words that express deep affection, romantic desires, and the joy and pain of love.
+3. **Feelings and Friendship**: 
 
-3. **Feelings and Friendship**: This topic revolves around the expression of feelings, both good and bad, and the importance of friendship, highlighting songs that discuss emotional experiences and the value of close relationships.
+4. **Conversational and Family**: 
 
-4. **Conversational and Familial References**: Featuring words like "say," "hey," "mama," and "daddy," this topic likely includes songs with conversational tones or those addressing family members directly, evoking a sense of dialogue or personal stories.
+5. **Journey**: 
 
-5. **Journey and Celebration**: This topic suggests themes of coming home, dancing, singing, and the general celebration of life's journey, encapsulating songs that are about movement, joy, and homecoming.
+6. **Dark Imagery**: 
 
-6. **Darker Imagery**: With words like "eye," "light," "burn," and "die," this topic delves into darker or more introspective themes, possibly touching on loss, despair, or the more somber aspects of life.
+7. **Aspiration**: 
 
-7. **Aspiration and Motivation**: This theme focuses on encouragement, striving for greatness, and never giving up, with words like "let," "high," and "move" indicating a push towards overcoming obstacles and achieving goals.
+8. **Party**:
 
-8. **Party and Energy**: Highlighting the vibrant aspects of music, this topic is all about the party scene, with references to "rock," "beat," and "parti," pointing towards energetic, upbeat songs designed to get listeners moving.
+9. **Male Terms**: 
 
-9. **Masculinity and Identity**: With words like "like," "man," "boy," and "car," this topic explores themes of masculinity, identity, and perhaps the societal expectations of men, often in a playful or contemplative manner.
+10. **Change and Departure**: 
 
-10. **Change and Departure**: Focused on themes of change, leaving, and moving on, this topic includes words related to transitions, such as "take," "away," "back," and "walk," reflecting on the process of change and the emotions involved.
+11. **Desire**: 
 
-11. **Desire and Yearning**: This topic addresses the deep human desires for connection, freedom, and being understood, with "want," "need," and "nobodi" highlighting the longing and search for fulfillment.
+12. **Expletives**: 
 
-12. **Explicit Content and Rebellion**: Featuring explicit language and themes, this topic is likely associated with songs that challenge societal norms, express frustration, or embrace a rebellious spirit.
+13. **Reflection**: 
 
-13. **Reflection and Time**: Centering around "time," "life," and "day," this topic reflects on the passage of time, life's journey, and the moments that shape our existence, often in a contemplative or nostalgic tone.
+14. **Spirituality**: 
 
-14. **Spirituality and Destiny**: With references to "god," "jesus," and "one," this topic explores spiritual themes, faith, and the quest for meaning and purpose in life.
+15. **Sociopolitical**: 
 
-15. **Sociopolitical Commentary**: Addressing "people," "world," "black," and "war," this topic is rich with songs that comment on social issues, political struggles, and the human condition, often aiming to inspire change or awareness.
+16. **Romance**: 
 
-16. **Romantic and Playful Affections**: This topic is filled with affectionate terms like "babi," "girl," and "wanna," likely featuring songs that express love, desire, and playful romantic intentions.
+17. **Street Life and Expletives**: 
 
-17. **Street Life, Ambition, and Explitives**: With words like  "money," and "shit," this topic delves into the realities of street life, ambition, and the pursuit of success, often with a raw, unfiltered lens.
+18. **Tonight**: 
 
-18. **Celebration and Optimism**: Focused on "right," "night," and "tonight," this topic captures the essence of living in the moment, celebrating life, and embracing the possibilities of the night.
+19. **Exclamations**: 
 
-19. **Exclamations and Emphasis**: Utilizing words like "yeah," "huh," and "whoa," this topic emphasizes songs that use these exclamations to convey enthusiasm, surprise, or agreement, often in a catchy or memorable way.
-
-20. **Knowledge and Discovery**: This topic, with words like "know," "tell," and "think," explores themes of understanding, revelation, and the pursuit of truth, reflecting on the process of learning and sharing knowledge.
+20. **Knowledge**: 
 
 # Topics over time
 
 ```{r}
+# Estimate time effect
 time_effect <- estimateEffect(1:20 ~ s(date), stm_model, meta = meta_data, uncertainty = "Global")
+effect <- extract.estimateEffect(time_effect, "date", model = stm_model, method = "pointestimate")
 ```
 
 
 ```{r}
-plot(time_effect, "date", method = "continuous", topics = c(1, 2, 3, 4, 5, 7, 8, 9, 10) ,model = time_effect, printlegend = TRUE)
+# Filter for relevant topics
+topics_data <- effect %>% 
+  filter(topic %in% c(1:2))
+
+# Now plot using ggplot2
+ggplot(topics_data, aes(x = covariate.value, y = estimate, group = topic, color = as.factor(topic))) +
+  geom_line() +
+  scale_color_manual(values = my_palette, labels = c("Topic 1", "Topic 2")) +
+  theme_calc() +
+  labs(x = "Release Year", y = "Expected Topic Proportions", color = "Topic")
+
 ```
+
+
+
 ## Optimise for K
 
 ```{r}
@@ -264,28 +294,55 @@ system.time(
 K_values <- searchK$results$K  
 heldout_likelihood <- searchK$results$heldout
 semcoh <- searchK$results$semcoh
+residual<- searchK$results$residual
+lowerbound <- searchK$results$lbound
 
 # Creating a data frame for plotting
 plot_data <- data.frame(
   K = unlist(K_values),
   HeldOutLikelihood = unlist(heldout_likelihood),
-  semcoh = unlist(semcoh)
+  semcoh = unlist(semcoh),
+  residual = unlist(residual),
+  lowerbound = unlist(lowerbound)
 )
 
-# Plot for Held-Out Likelihood
-ggplot(plot_data, aes(x = K, y = HeldOutLikelihood)) +
-  geom_line() +
-  geom_point() +
+# Held-Out Likelihood Plot
+plot_heldout <- ggplot(plot_data, aes(x = K, y = HeldOutLikelihood)) +
+  geom_line(color = my_palette[1]) +
   theme_minimal() +
-  labs(x = "Number of Topics (K)",
+  theme(axis.text.y = element_text(angle = 90)) +
+  labs(x = "",
        y = "Held-Out Likelihood")
 
-# Plot for Semantic coherance
-ggplot(plot_data, aes(x = K, y = semcoh)) +
-  geom_line() +
-  geom_point() +
+# Semantic Coherence Plot
+plot_semcoh <- ggplot(plot_data, aes(x = K, y = semcoh)) +
+  geom_line(color = my_palette[2]) +
   theme_minimal() +
+  theme(axis.text.y = element_text(angle = 90)) +
+  labs(x = "",
+       y = "Semantic Coherence")
+
+# Residual Plot
+plot_residual <- ggplot(plot_data, aes(x = K, y = residual)) +
+  geom_line(color = my_palette[3]) +
+  theme_minimal() +
+  theme(axis.text.y = element_text(angle = 90)) +
   labs(x = "Number of Topics (K)",
-       y = "Semantic Coherance")
+       y = "Residual")
+
+# Lower Bound Plot
+plot_lowerbound <- ggplot(plot_data, aes(x = K, y = lowerbound)) +
+  geom_line(color = my_palette[4]) +
+  theme_minimal() +
+  theme(axis.text.y = element_text(angle = 90)) +
+  labs(x = "Number of Topics (K)",
+       y = "Lower Bound")
+
+# Combining the graphs into one plot
+combined_plot <- grid.arrange(plot_heldout, plot_semcoh, plot_residual, plot_lowerbound, ncol = 2)
+
+# Combining the graphs into one plot
+combined_plot <- grid.arrange(plot_heldout, plot_semcoh, plot_residual, plot_lowerbound, ncol = 2)
+ggsave("../figures/Model diagnostics.png", width = 23, height = 15, units = "cm")
 ```
 
