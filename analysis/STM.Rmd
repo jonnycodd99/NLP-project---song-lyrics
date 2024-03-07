@@ -302,7 +302,7 @@ effect <- extract.estimateEffect(time_effect, "date", model = stm_model, method 
 ```{r}
 # Filter for relevant topics
 topics_data <- effect %>% 
-  filter(topic %in% c(1:2))
+  filter(topic %in% c(2, 17))
 
 # Now plot using ggplot2
 ggplot(topics_data, aes(x = covariate.value, y = estimate, group = topic, color = as.factor(topic))) +
