@@ -408,7 +408,31 @@ my_graph <- ggraph(stm_corrs, layout = "fr") +
 my_graph
 ggsave("../figures/network graph.png", plot = my_graph, width = 10, height = 8, dpi = 300)
 ```
+# Genre Graph
 
+```{r}
+genre_effect <- estimateEffect(1:20 ~ genre, stm_model, meta = meta_data, uncertainty = "Global")
+effect <- extract.estimateEffect(genre_effect, "genre", model = stm_model, method = "pointestimate")
+
+effect <- effect %>%
+  mutate(topic_label = topic_labels[topic])
+
+effect_filtered <- effect %>%
+  filter(covariate.value != "misc")
+
+ggplot(effect_filtered, aes(x = covariate.value, y = estimate, fill = as.factor(covariate.value))) +
+  geom_col() +
+  theme_minimal() +  
+    theme(
+    #legend.position = "none",
+    axis.title = element_text(size = 8), # Decrease font size for axis titles
+    axis.text = element_blank(), # Decrease font size for axis text (ticks)
+    strip.text = element_text(size = 7) # Decrease font size for facet titles
+  ) +
+  labs(x = "Genre", y = "Expected Topic Proportions", fill = "Topic") +
+  facet_wrap(~ topic_label, ncol = 5) 
+
+```
 
 
 
