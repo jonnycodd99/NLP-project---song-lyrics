@@ -336,45 +336,6 @@ ggsave("../figures/Topic proportions.png", width = 23, height = 15, units = "cm"
 ```{r}
 labelTopics(stm_model, n = 7)
 ```
-1. **Vocal Expressions**: 
-
-2. **Love**: 
-
-3. **Feelings and Friendship**: 
-
-4. **Conversational and Family**: 
-
-5. **Journey**: 
-
-6. **Dark Imagery**: 
-
-7. **Aspiration**: 
-
-8. **Party**:
-
-9. **Male Terms**: 
-
-10. **Change and Departure**: 
-
-11. **Desire**: 
-
-12. **Expletives**: 
-
-13. **Reflection**: 
-
-14. **Spirituality**: 
-
-15. **Sociopolitical**: 
-
-16. **Romance**: 
-
-17. **Street Life and Expletives**: 
-
-18. **Tonight**: 
-
-19. **Exclamations**: 
-
-20. **Knowledge**: 
 
 # Topics over time
 
@@ -393,20 +354,59 @@ effect <- merge(effect, gamma_terms_subset , by = "topic_label", all.x = TRUE)
 ```
 
 ```{r}
+# All topics over time
 topics_data <- effect  
 topics_data <- topics_data %>% arrange(desc(gamma))
 topics_data$topic_label <- factor(topics_data$topic_label, levels = unique(topics_data$topic_label))
 
-# Now, plot using 'ggplot2' with the sorted 'topic_label'
 ggplot(topics_data, aes(x = covariate.value, y = estimate, group = topic, color = as.factor(topic))) +
   geom_line() +
   geom_line(aes(y = ci.lower), linetype = "dashed") +  
   geom_line(aes(y = ci.upper), linetype = "dashed") +
   theme_calc() +
-  theme(legend.position = "none") +
+  theme(legend.position = "none",
+        strip.text.x = element_text(size = 14, face = "bold")) +  # Adjust strip text size and make it bold
   labs(x = "Release Year", y = "Expected Topic Proportions", color = "Topic") +
-  facet_wrap(~ topic_label, ncol = 5) 
+  facet_wrap(~ topic_label, ncol = 5)
+
 ```
+
+# Network 
+
+```{r}
+# extract network
+devtools::install_github('cschwem2er/stminsights')
+library(stminsights)
+library(ggraph)
+library(tidygraph)
+library(quanteda)
+stm_corrs <- get_network(model = stm_model,
+                         method = 'simple',
+                         labels = topic_labels,
+                         cutoff = 0.001,
+                         cutiso = TRUE)
+
+library(igraph)
+
+# Ensure edge weights are positive and non-NA
+E(stm_corrs)$weight <- ifelse(E(stm_corrs)$weight <= 0 | is.na(E(stm_corrs)$weight), 0.1, E(stm_corrs)$weight)
+
+sorted_gamma_terms <- gamma_terms %>%
+  mutate(topic_number = as.numeric(str_extract(topic, "\\d+"))) %>%
+  arrange(topic_number) %>%
+  select(-topic_number)  # Remove the auxiliary column after sorting
+
+V(stm_corrs)$proportion <- sorted_gamma_terms$gamma
+
+ggraph(stm_corrs, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = weight), show.legend = FALSE) +
+  geom_node_point(aes(size = proportion, color = as.factor(name)), show.legend = FALSE) + # Node size based on topic proportion
+  geom_node_text(aes(label = name), repel = TRUE, check_overlap = TRUE, vjust = 1, hjust = 1) +
+  scale_size(range = c(1, 10)) + # Adjust size scale as needed
+  theme_graph() 
+```
+
+
 
 
 
