@@ -6,7 +6,6 @@ output: html_notebook
 if (!require(devtools)) install.packages("devtools")
 library(devtools)
 devtools::install_github("mikajoh/tidystm", dependencies = TRUE)
-devtools::install_github("milesdwilliams15/Better-Graphics-for-the-stm-Package-in-R", dependencies = TRUE)
 ```
 
 ```{r}
@@ -26,6 +25,7 @@ library(RColorBrewer)
 library(ggthemes)
 library(gridExtra)
 library(tidytext)
+library(patchwork)
 
 # Define the color palette
 my_palette <- brewer.pal(9, "Set1")  
@@ -268,13 +268,8 @@ stm_model <- stm(documents = dfm_lyricsCorpus_filtered,
                  prevalence = ~ s(date) + genre + s(date)*genre, 
                  seed = 123, init.type = "Spectral")
 ```
+
 # Analysis
-
-```{r}
-# Load data
-load(file.path(DIR, '../../data/new model.RData'))
-```
-
 ## Overall topic proportions
 
 ```{r}
@@ -337,7 +332,7 @@ ggsave("../figures/Topic proportions.png", width = 23, height = 15, units = "cm"
 labelTopics(stm_model, n = 7)
 ```
 
-# Topics over time
+## Topics over time
 
 ```{r}
 # Estimate time effect
@@ -371,7 +366,7 @@ ggplot(topics_data, aes(x = covariate.value, y = estimate, group = topic, color 
 
 ```
 
-# Network 
+## Network 
 
 ```{r}
 # extract network
@@ -408,7 +403,7 @@ my_graph <- ggraph(stm_corrs, layout = "fr") +
 my_graph
 ggsave("../figures/network graph.png", plot = my_graph, width = 10, height = 8, dpi = 300)
 ```
-# Genre Graph
+## Genre Graph
 
 ```{r}
 genre_effect <- estimateEffect(1:20 ~ genre, stm_model, meta = meta_data, uncertainty = "Global")
@@ -435,12 +430,178 @@ ggplot(effect_filtered, aes(x = covariate.value, y = estimate, fill = as.factor(
 ```
 
 
+### genre x time
+
+```{r}
+meta_data$genre <- as.factor(meta_data$genre)
+meta_data$date <- as.numeric(meta_data$date)
+
+# Estimate genre*time effect
+time_genre_interaction_effect <- estimateEffect(~ genre * s(date), stm_model, meta = meta_data, uncertainty = "Global")
+
+effect <- lapply(unique(meta_data$genre), function(i) {
+  extract.estimateEffect(x = time_genre_interaction_effect,
+                         covariate = "date",
+                         method = "pointestimate",
+                         model = stm_model,
+                         labeltype = "Highest",
+                         n = 4,
+                         moderator = "genre",
+                         moderator.value = i)
+})
+
+rock_df <- effect[[1]]
+rock_df <- rock_df %>%
+  mutate(topic_label = topic_labels[topic])
+
+rb_df <- effect[[2]]
+rb_df <- rb_df %>%
+  mutate(topic_label = topic_labels[topic])
+
+pop_df <- effect[[3]]
+pop_df <- pop_df %>%
+  mutate(topic_label = topic_labels[topic])
+
+misc_df <- effect[[4]]
+misc_df <- misc_df %>%
+  mutate(topic_label = topic_labels[topic])
+
+rap_df <- effect[[5]]
+rap_df <- rap_df %>%
+  mutate(topic_label = topic_labels[topic])
+
+country_df <- effect[[6]]
+country_df<- country_df %>%
+  mutate(topic_label = topic_labels[topic])
+```
 
 
 
+```{r}
+# First, calculate the average effect for each topic
+#rock
+average_gamma_rock <- rock_df %>%
+  group_by(topic) %>%
+  summarise(avg_gamma = mean(estimate, na.rm = TRUE)) %>%
+  arrange(desc(avg_gamma)) %>%
+  slice(1:5)
+
+# Then, filter ydataframe to only include these top 5 topics
+rock_df_filtered <- rock_df %>%
+  filter(topic %in% average_gamma_rock$topic)
+
+#rb
+average_gamma_rb <- rb_df %>%
+  group_by(topic) %>%
+  summarise(avg_gamma = mean(estimate, na.rm = TRUE)) %>%
+  arrange(desc(avg_gamma))  %>%
+  slice(1:5)
+
+# Then, filter  dataframe to only include these top 5 topics
+rb_df_filtered <- rb_df %>%
+  filter(topic %in% average_gamma_rb$topic) 
 
 
+#pop
+average_gamma_pop <- pop_df %>%
+  group_by(topic) %>%
+  summarise(avg_gamma = mean(estimate, na.rm = TRUE)) %>%
+  arrange(desc(avg_gamma)) %>%
+  slice(1:5) # Select the top 5 topics based on average gamma
+
+# Then, filter dataframe to only include these top 5 topics
+pop_df_filtered <- pop_df %>%
+  filter(topic %in% average_gamma_pop$topic)
+
+#rap
+average_gamma_rap <- rap_df %>%
+  group_by(topic) %>%
+  summarise(avg_gamma = mean(estimate, na.rm = TRUE)) %>%
+  arrange(desc(avg_gamma)) %>%
+  slice(1:5) # Select the top 5 topics based on average gamma
+
+# Then, filter dataframe to only include these top 5 topics
+rap_df_filtered <- rap_df %>%
+  filter(topic %in% average_gamma_rap$topic)
+
+#country
+average_gamma_country <- country_df %>%
+  group_by(topic) %>%
+  summarise(avg_gamma = mean(estimate, na.rm = TRUE)) %>%
+  arrange(desc(avg_gamma)) %>%
+  slice(1:5) # Select the top 5 topics based on average gamma
+
+# Then, filter dataframe to only include these top 5 topics
+country_df_filtered <- country_df %>%
+  filter(topic %in% average_gamma_country$topic)
+```
 
 
+```{r}
+rock_plot <- ggplot(rock_df_filtered, aes(x = covariate.value, y = estimate, group = topic_label, color = as.factor(topic_label))) +
+  geom_line() +
+  theme_minimal() + 
+  theme(legend.position = "right",
+        plot.title = element_text(hjust = 0.5),
+        legend.text = element_text(size = 8)) + # Adjust legend text size here
+  labs(title = "Rock", x = "Release Year", y = "Expected Topic Proportions", color = "Topic")
 
+print(rock_plot)
+
+# Save the plot with adjusted width and height for a wider image
+ggsave("rock_plot.png", rock_plot, width = 30, height = 15, units = "cm")
+```
+
+
+```{r}
+rb_plot <- ggplot(rb_df_filtered, aes(x = covariate.value, y = estimate, group = topic_label, color = as.factor(topic_label))) +
+  geom_line() +
+  theme_minimal() + # Assuming theme_calc() was a typo; using theme_minimal() instead
+ theme(legend.position = "right",
+        plot.title = element_text(hjust = 0.5)) + # Center the title
+  labs(title = "R&B", x = "Release Year", y = "Expected Topic Proportions", color = "Topic")
+
+print(rb_plot)
+
+ggsave("rb_plot.png", rb_plot, width = 20, height = 15, units = "cm")
+```
+
+```{r}
+pop_plot <- ggplot(pop_df_filtered, aes(x = covariate.value, y = estimate, group = topic_label, color = as.factor(topic_label))) +
+  geom_line() +
+  theme_minimal() + # Assuming theme_calc() was a typo; using theme_minimal() instead
+ theme(legend.position = "right",
+        plot.title = element_text(hjust = 0.5)) + # Center the title
+  labs(title = "Pop", x = "Release Year", y = "Expected Topic Proportions", color = "Topic")
+
+print(pop_plot)
+
+ggsave("pop_plot.png", rb_plot, width = 20, height = 20, units = "cm")
+```
+
+```{r}
+rap_plot <- ggplot(rap_df_filtered, aes(x = covariate.value, y = estimate, group = topic_label, color = as.factor(topic_label))) +
+  geom_line() +
+  theme_minimal() + # Assuming theme_calc() was a typo; using theme_minimal() instead
+ theme(legend.position = "right",
+        plot.title = element_text(hjust = 0.5)) + # Center the title
+  labs(title = "Rap", x = "Release Year", y = "Expected Topic Proportions", color = "Topic")
+
+print(rap_plot)
+
+ggsave("rap_plot.png", rb_plot, width = 20, height = 20, units = "cm")
+```
+
+```{r}
+country_plot <- ggplot(country_df_filtered, aes(x = covariate.value, y = estimate, group = topic_label, color = as.factor(topic_label))) +
+  geom_line() +
+  theme_minimal() + # Assuming theme_calc() was a typo; using theme_minimal() instead
+ theme(legend.position = "right",
+        plot.title = element_text(hjust = 0.5)) + # Center the title
+  labs(title = "Country", x = "Release Year", y = "Expected Topic Proportions", color = "Topic")
+
+print(country_plot)
+
+ggsave("country_plot.png", rb_plot, width = 20, height = 20, units = "cm")
+```
 
