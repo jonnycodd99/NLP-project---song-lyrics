@@ -380,13 +380,14 @@ library(stminsights)
 library(ggraph)
 library(tidygraph)
 library(quanteda)
+library(igraph)
+
 stm_corrs <- get_network(model = stm_model,
                          method = 'simple',
                          labels = topic_labels,
                          cutoff = 0.001,
                          cutiso = TRUE)
 
-library(igraph)
 
 # Ensure edge weights are positive and non-NA
 E(stm_corrs)$weight <- ifelse(E(stm_corrs)$weight <= 0 | is.na(E(stm_corrs)$weight), 0.1, E(stm_corrs)$weight)
@@ -398,13 +399,16 @@ sorted_gamma_terms <- gamma_terms %>%
 
 V(stm_corrs)$proportion <- sorted_gamma_terms$gamma
 
-ggraph(stm_corrs, layout = "fr") +
+my_graph <- ggraph(stm_corrs, layout = "fr") +
   geom_edge_link(aes(edge_alpha = weight), show.legend = FALSE) +
   geom_node_point(aes(size = proportion, color = as.factor(name)), show.legend = FALSE) + # Node size based on topic proportion
-  geom_node_text(aes(label = name), repel = TRUE, check_overlap = TRUE, vjust = 1, hjust = 1) +
+ geom_node_text(aes(label = name), repel = TRUE, check_overlap = TRUE, vjust = 1, hjust = 1, fontface = "bold") +  # Make text bold
   scale_size(range = c(1, 10)) + # Adjust size scale as needed
   theme_graph() 
+my_graph
+ggsave("../figures/network graph.png", plot = my_graph, width = 10, height = 8, dpi = 300)
 ```
+
 
 
 
